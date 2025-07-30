@@ -8,6 +8,7 @@ pipeline {
         SERVER_IP = 'your.server.ip'
         BACKEND_PATH = '/var/www/backend'
         FRONTEND_PATH = '/var/www/frontend'
+        PATH = "/usr/local/bin:/usr/bin:/bin:$PATH"  // ✅ npm path added here
     }
 
     stages {
@@ -84,4 +85,3 @@ pipeline {
         }
     }
 }
-
