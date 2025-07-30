@@ -1,14 +1,17 @@
 pipeline {
     agent any
 
+    tools {
+        nodejs 'Node18'  // ✅ This must match the NodeJS tool name from Global Tool Configuration
+    }
+
     environment {
         BACKEND_DIR = 'backend'
         FRONTEND_DIR = 'frontend'
-        SERVER_USER = 'youruser'
-        SERVER_IP = 'your.server.ip'
+        SERVER_USER = 'youruser'         // 🔁 change this to your real username
+        SERVER_IP = 'your.server.ip'     // 🔁 change this to your real server IP
         BACKEND_PATH = '/var/www/backend'
         FRONTEND_PATH = '/var/www/frontend'
-        PATH = "/usr/local/bin:/usr/bin:/bin:$PATH"  // ✅ npm path added here
     }
 
     stages {
@@ -25,7 +28,7 @@ pipeline {
                     sh 'npm test || true'
                     sh 'npm run build'
                     sh 'tar -czf backend.tar.gz dist'
-                    stash includes: 'backend/backend.tar.gz', name: 'backend'
+                    stash includes: 'dist/**', name: 'backend'
                 }
             }
         }
@@ -37,7 +40,7 @@ pipeline {
                     sh 'npm test || true'
                     sh 'npm run build'
                     sh 'tar -czf frontend.tar.gz build'
-                    stash includes: 'frontend/frontend.tar.gz', name: 'frontend'
+                    stash includes: 'build/**', name: 'frontend'
                 }
             }
         }
@@ -46,13 +49,15 @@ pipeline {
             steps {
                 unstash 'backend'
                 sh '''
-                    scp backend/backend.tar.gz $SERVER_USER@$SERVER_IP:/tmp/
+                    scp backend.tar.gz $SERVER_USER@$SERVER_IP:/tmp/
                     ssh $SERVER_USER@$SERVER_IP '
-                        mkdir -p ~/rollback/backend_$(date +%F-%T) &&
-                        cp -r ${BACKEND_PATH} ~/rollback/backend_$(date +%F-%T) || true &&
-                        tar -xzf /tmp/backend.tar.gz -C ${BACKEND_PATH} &&
-                        cd ${BACKEND_PATH} &&
-                        npm install --omit=dev &&
+                        mkdir -p ~/rollback/backend_$(date +%F-%T)
+                        cp -r ${BACKEND_PATH} ~/rollback/backend_$(date +%F-%T) || true
+                        rm -rf ${BACKEND_PATH}/*
+                        mkdir -p ${BACKEND_PATH}
+                        tar -xzf /tmp/backend.tar.gz -C ${BACKEND_PATH}
+                        cd ${BACKEND_PATH}
+                        npm install --omit=dev
                         pm2 restart app || pm2 start dist/main.js --name app
                     '
                 '''
@@ -63,12 +68,13 @@ pipeline {
             steps {
                 unstash 'frontend'
                 sh '''
-                    scp frontend/frontend.tar.gz $SERVER_USER@$SERVER_IP:/tmp/
+                    scp frontend.tar.gz $SERVER_USER@$SERVER_IP:/tmp/
                     ssh $SERVER_USER@$SERVER_IP '
-                        mkdir -p ~/rollback/frontend_$(date +%F-%T) &&
-                        cp -r ${FRONTEND_PATH} ~/rollback/frontend_$(date +%F-%T) || true &&
-                        rm -rf ${FRONTEND_PATH}/* &&
-                        tar -xzf /tmp/frontend.tar.gz -C ${FRONTEND_PATH} &&
+                        mkdir -p ~/rollback/frontend_$(date +%F-%T)
+                        cp -r ${FRONTEND_PATH} ~/rollback/frontend_$(date +%F-%T) || true
+                        rm -rf ${FRONTEND_PATH}/*
+                        mkdir -p ${FRONTEND_PATH}
+                        tar -xzf /tmp/frontend.tar.gz -C ${FRONTEND_PATH}
                         nginx -s reload
                     '
                 '''
