@@ -1,20 +1,22 @@
+
 pipeline {
     agent any
 
     tools {
-        nodejs 'NodeJS'  // ✅ This must match the NodeJS tool name from Global Tool Configuration
+        nodejs 'NodeJS'  // ✅ Make sure this matches Global Tool Configuration exactly
     }
 
     environment {
         BACKEND_DIR = 'backend'
         FRONTEND_DIR = 'frontend'
-        SERVER_USER = 'youruser'         // 🔁 change this to your real username
-        SERVER_IP = 'your.server.ip'     // 🔁 change this to your real server IP
+        SERVER_USER = 'jenkins'         // ✅ your real Jenkins user
+        SERVER_IP = '10.171.221.161'    // ✅ your real Jenkins IP
         BACKEND_PATH = '/var/www/backend'
         FRONTEND_PATH = '/var/www/frontend'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -24,10 +26,12 @@ pipeline {
         stage('Build Backend') {
             steps {
                 dir("${BACKEND_DIR}") {
-                    sh 'npm install'
-                    sh 'npm test || true'
-                    sh 'npm run build'
-                    sh 'tar -czf backend.tar.gz dist'
+                    sh '''
+                        npm install
+                        npm test || true
+                        npm run build
+                        tar -czf backend.tar.gz dist
+                    '''
                     stash includes: 'dist/**', name: 'backend'
                 }
             }
@@ -36,10 +40,12 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    sh 'npm install'
-                    sh 'npm test || true'
-                    sh 'npm run build'
-                    sh 'tar -czf frontend.tar.gz build'
+                    sh '''
+                        npm install
+                        npm test || true
+                        npm run build
+                        tar -czf frontend.tar.gz build
+                    '''
                     stash includes: 'build/**', name: 'frontend'
                 }
             }
@@ -49,8 +55,8 @@ pipeline {
             steps {
                 unstash 'backend'
                 sh '''
-                    scp backend.tar.gz $SERVER_USER@$SERVER_IP:/tmp/
-                    ssh $SERVER_USER@$SERVER_IP '
+                    scp backend.tar.gz jenkins@10.171.221.161:/tmp/
+                    ssh jenkins@10.171.221.161 '
                         mkdir -p ~/rollback/backend_$(date +%F-%T)
                         cp -r ${BACKEND_PATH} ~/rollback/backend_$(date +%F-%T) || true
                         rm -rf ${BACKEND_PATH}/*
@@ -68,8 +74,8 @@ pipeline {
             steps {
                 unstash 'frontend'
                 sh '''
-                    scp frontend.tar.gz $SERVER_USER@$SERVER_IP:/tmp/
-                    ssh $SERVER_USER@$SERVER_IP '
+                    scp frontend.tar.gz jenkins@10.171.221.161:/tmp/
+                    ssh jenkins@10.171.221.161 '
                         mkdir -p ~/rollback/frontend_$(date +%F-%T)
                         cp -r ${FRONTEND_PATH} ~/rollback/frontend_$(date +%F-%T) || true
                         rm -rf ${FRONTEND_PATH}/*
