@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
 
@@ -9,8 +8,8 @@ pipeline {
     environment {
         BACKEND_DIR = 'backend'
         FRONTEND_DIR = 'frontend'
-        SERVER_USER = 'jenkins'         // ✅ your real Jenkins user
-        SERVER_IP = '10.171.221.161'    // ✅ your real Jenkins IP
+        SERVER_USER = 'jenkins'
+        SERVER_IP = '10.171.221.161'
         BACKEND_PATH = '/var/www/backend'
         FRONTEND_PATH = '/var/www/frontend'
     }
@@ -55,8 +54,8 @@ pipeline {
             steps {
                 unstash 'backend'
                 sh '''
-                    scp backend.tar.gz jenkins@10.171.221.161:/tmp/
-                    ssh jenkins@10.171.221.161 '
+                    scp backend.tar.gz ${SERVER_USER}@${SERVER_IP}:/tmp/
+                    ssh ${SERVER_USER}@${SERVER_IP} '
                         mkdir -p ~/rollback/backend_$(date +%F-%T)
                         cp -r ${BACKEND_PATH} ~/rollback/backend_$(date +%F-%T) || true
                         rm -rf ${BACKEND_PATH}/*
@@ -74,8 +73,8 @@ pipeline {
             steps {
                 unstash 'frontend'
                 sh '''
-                    scp frontend.tar.gz jenkins@10.171.221.161:/tmp/
-                    ssh jenkins@10.171.221.161 '
+                    scp frontend.tar.gz ${SERVER_USER}@${SERVER_IP}:/tmp/
+                    ssh ${SERVER_USER}@${SERVER_IP} '
                         mkdir -p ~/rollback/frontend_$(date +%F-%T)
                         cp -r ${FRONTEND_PATH} ~/rollback/frontend_$(date +%F-%T) || true
                         rm -rf ${FRONTEND_PATH}/*
@@ -91,9 +90,34 @@ pipeline {
     post {
         success {
             echo '✅ Deployment successful'
+
+            archiveArtifacts artifacts: '**/backend.tar.gz, **/frontend.tar.gz', fingerprint: true
+
+            emailext (
+                subject: "✅ SUCCESS: Jenkins Build #${env.BUILD_NUMBER}",
+                body: "Project deployed successfully.\n\nCheck build: ${env.BUILD_URL}",
+                to: "youremail@example.com"
+            )
+
+            // slackSend (optional if Slack configured)
+            // slackSend channel: '#devops', color: 'good', message: "✅ SUCCESS: Jenkins Job ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
         }
+
         failure {
             echo '❌ Deployment failed. Rollback may be required.'
+
+            emailext (
+                subject: "❌ FAILURE: Jenkins Build #${env.BUILD_NUMBER}",
+                body: "Deployment failed. Please check the logs.\n\nBuild URL: ${env.BUILD_URL}",
+                to: "youremail@example.com"
+            )
+
+            // slackSend (optional if Slack configured)
+            // slackSend channel: '#devops', color: 'danger', message: "❌ FAILED: Jenkins Job ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+        }
+
+        always {
+            echo "📦 Job complete: ${currentBuild.result}"
         }
     }
 }
