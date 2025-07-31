@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
 
@@ -32,7 +31,9 @@ pipeline {
                         npm run build
                         tar -czf backend.tar.gz dist
                     '''
-                    stash includes: 'dist/**', name: 'backend'
+                    // 🔴 Commented to prevent error from unstash path mismatch
+                    // stash includes: 'dist/**', name: 'backend'
+                    stash includes: 'backend.tar.gz', name: 'backend'
                 }
             }
         }
@@ -46,7 +47,9 @@ pipeline {
                         npm run build
                         tar -czf frontend.tar.gz build
                     '''
-                    stash includes: 'build/**', name: 'frontend'
+                    // 🔴 Commented to prevent error from unstash path mismatch
+                    // stash includes: 'build/**', name: 'frontend'
+                    stash includes: 'frontend.tar.gz', name: 'frontend'
                 }
             }
         }
@@ -56,7 +59,7 @@ pipeline {
                 unstash 'backend'
                 sh '''
                     scp backend.tar.gz jenkins@10.171.221.161:/tmp/
-                    ssh jenkins@10.171.221.161 '
+                    ssh jenkins@10.171.221.161 <<EOF
                         mkdir -p ~/rollback/backend_$(date +%F-%T)
                         cp -r ${BACKEND_PATH} ~/rollback/backend_$(date +%F-%T) || true
                         rm -rf ${BACKEND_PATH}/*
@@ -65,7 +68,7 @@ pipeline {
                         cd ${BACKEND_PATH}
                         npm install --omit=dev
                         pm2 restart app || pm2 start dist/main.js --name app
-                    '
+                    EOF
                 '''
             }
         }
@@ -75,14 +78,14 @@ pipeline {
                 unstash 'frontend'
                 sh '''
                     scp frontend.tar.gz jenkins@10.171.221.161:/tmp/
-                    ssh jenkins@10.171.221.161 '
+                    ssh jenkins@10.171.221.161 <<EOF
                         mkdir -p ~/rollback/frontend_$(date +%F-%T)
                         cp -r ${FRONTEND_PATH} ~/rollback/frontend_$(date +%F-%T) || true
                         rm -rf ${FRONTEND_PATH}/*
                         mkdir -p ${FRONTEND_PATH}
                         tar -xzf /tmp/frontend.tar.gz -C ${FRONTEND_PATH}
                         nginx -s reload
-                    '
+                    EOF
                 '''
             }
         }
@@ -90,8 +93,8 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    def backendUrl = "http://${SERVER_IP}:3000/health"  // ✅ Adjust this if your API uses a different path
-                    def frontendUrl = "http://${SERVER_IP}"             // Nginx hosted frontend
+                    def backendUrl = "http://${SERVER_IP}:3000/health"
+                    def frontendUrl = "http://${SERVER_IP}"
 
                     echo "🔍 Checking backend health..."
                     def backendResponse = sh(script: "curl -s -o /dev/null -w \"%{http_code}\" ${backendUrl}", returnStdout: true).trim()
