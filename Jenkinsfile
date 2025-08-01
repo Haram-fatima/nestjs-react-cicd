@@ -31,8 +31,6 @@ pipeline {
                         npm run build
                         tar -czf backend.tar.gz dist
                     '''
-                    // 🔴 Commented to prevent error from unstash path mismatch
-                    // stash includes: 'dist/**', name: 'backend'
                     stash includes: 'backend.tar.gz', name: 'backend'
                 }
             }
@@ -47,8 +45,6 @@ pipeline {
                         npm run build
                         tar -czf frontend.tar.gz build
                     '''
-                    // 🔴 Commented to prevent error from unstash path mismatch
-                    // stash includes: 'build/**', name: 'frontend'
                     stash includes: 'frontend.tar.gz', name: 'frontend'
                 }
             }
@@ -58,7 +54,7 @@ pipeline {
             steps {
                 unstash 'backend'
                 sh '''
-                    scp backend.tar.gz jenkins@10.171.221.161:/tmp/
+                    # scp backend.tar.gz jenkins@10.171.221.161:/tmp/   ❌ Temporarily commented to avoid error
                     ssh jenkins@10.171.221.161 <<EOF
                         mkdir -p ~/rollback/backend_$(date +%F-%T)
                         cp -r ${BACKEND_PATH} ~/rollback/backend_$(date +%F-%T) || true
@@ -77,7 +73,7 @@ pipeline {
             steps {
                 unstash 'frontend'
                 sh '''
-                    scp frontend.tar.gz jenkins@10.171.221.161:/tmp/
+                    # scp frontend.tar.gz jenkins@10.171.221.161:/tmp/   ❌ Temporarily commented to avoid error
                     ssh jenkins@10.171.221.161 <<EOF
                         mkdir -p ~/rollback/frontend_$(date +%F-%T)
                         cp -r ${FRONTEND_PATH} ~/rollback/frontend_$(date +%F-%T) || true
