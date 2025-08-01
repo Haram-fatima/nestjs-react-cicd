@@ -2,20 +2,19 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'NodeJS'  // ✅ Matches Global Tool Configuration
+        nodejs 'NodeJS'
     }
 
     environment {
         BACKEND_DIR = 'backend'
         FRONTEND_DIR = 'frontend'
-        SERVER_USER = 'jenkins'         
-        SERVER_IP = '10.171.221.161'    
+        SERVER_USER = 'jenkins'
+        SERVER_IP = '10.171.221.161'
         BACKEND_PATH = '/var/www/backend'
         FRONTEND_PATH = '/var/www/frontend'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -54,10 +53,11 @@ pipeline {
             steps {
                 unstash 'backend'
                 sh '''
-                    # scp backend.tar.gz jenkins@10.171.221.161:/tmp/   ❌ Temporarily commented to avoid error
-                    ssh jenkins@10.171.221.161 <<EOF
-                        mkdir -p ~/rollback/backend_$(date +%F-%T)
-                        cp -r ${BACKEND_PATH} ~/rollback/backend_$(date +%F-%T) || true
+                    scp backend.tar.gz ${SERVER_USER}@${SERVER_IP}:/tmp/
+                    ssh ${SERVER_USER}@${SERVER_IP} <<EOF
+                        TIMESTAMP=$(date +%F-%T)
+                        mkdir -p ~/rollback/backend_$TIMESTAMP
+                        cp -r ${BACKEND_PATH}/* ~/rollback/backend_$TIMESTAMP/ || true
                         rm -rf ${BACKEND_PATH}/*
                         mkdir -p ${BACKEND_PATH}
                         tar -xzf /tmp/backend.tar.gz -C ${BACKEND_PATH}
@@ -73,10 +73,11 @@ pipeline {
             steps {
                 unstash 'frontend'
                 sh '''
-                    # scp frontend.tar.gz jenkins@10.171.221.161:/tmp/   ❌ Temporarily commented to avoid error
-                    ssh jenkins@10.171.221.161 <<EOF
-                        mkdir -p ~/rollback/frontend_$(date +%F-%T)
-                        cp -r ${FRONTEND_PATH} ~/rollback/frontend_$(date +%F-%T) || true
+                    scp frontend.tar.gz ${SERVER_USER}@${SERVER_IP}:/tmp/
+                    ssh ${SERVER_USER}@${SERVER_IP} <<EOF
+                        TIMESTAMP=$(date +%F-%T)
+                        mkdir -p ~/rollback/frontend_$TIMESTAMP
+                        cp -r ${FRONTEND_PATH}/* ~/rollback/frontend_$TIMESTAMP/ || true
                         rm -rf ${FRONTEND_PATH}/*
                         mkdir -p ${FRONTEND_PATH}
                         tar -xzf /tmp/frontend.tar.gz -C ${FRONTEND_PATH}
@@ -92,17 +93,12 @@ pipeline {
                     def backendUrl = "http://${SERVER_IP}:3000/health"
                     def frontendUrl = "http://${SERVER_IP}"
 
-                    echo "🔍 Checking backend health..."
                     def backendResponse = sh(script: "curl -s -o /dev/null -w \"%{http_code}\" ${backendUrl}", returnStdout: true).trim()
-
-                    echo "🔍 Checking frontend health..."
                     def frontendResponse = sh(script: "curl -s -o /dev/null -w \"%{http_code}\" ${frontendUrl}", returnStdout: true).trim()
 
                     if (backendResponse != "200" || frontendResponse != "200") {
-                        error("❌ Health check failed! Backend: ${backendResponse}, Frontend: ${frontendResponse}")
+                        error("Health check failed! Backend: ${backendResponse}, Frontend: ${frontendResponse}")
                     }
-
-                    echo "✅ Health check passed! Backend: ${backendResponse}, Frontend: ${frontendResponse}"
                 }
             }
         }
@@ -110,10 +106,12 @@ pipeline {
 
     post {
         success {
-            echo '✅ Deployment successful'
+            echo 'Deployment successful'
         }
         failure {
-            echo '❌ Deployment failed. Rollback may be required.'
+            echo 'Deployment failed. Rollback may be required.'
         }
     }
 }
+
+        
