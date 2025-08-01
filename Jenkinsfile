@@ -4,7 +4,8 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git 'https://github.com/Haram-fatima/nestjs-react-cicd.git'
+                git branch: 'main', url: 'https://github.com/Haram-fatima/nestjs-react-cicd.git'
+
             }
         }
 
